@@ -430,6 +430,7 @@ class MainWindow(QMainWindow, Ui_MainWindow):
         else:
             self.cvtools.load_model(data_path)
             self.image_content_2.setHidden(True)
+            self.recognition_viewer.images.clear()
 
     def save_statistics(self):
         path = QFileDialog.getSaveFileName(self, 'Сохраните статистику', '', 'Excel file (*.xlsx)')[0]
@@ -477,7 +478,7 @@ class MainWindow(QMainWindow, Ui_MainWindow):
     def color_clicked(self, name):
         color = QColorDialog.getColor(parent=self)
         if color.isValid():
-            self.database.update_preference(name, color.name)
+            self.database.update_preference(name, color.name())
 
     def show_rect_changed(self, state):
         self.database.update_preference('show_rect', str(state == Qt.Checked))
