@@ -11,7 +11,7 @@
    </rect>
   </property>
   <property name="windowTitle">
-   <string>FaceAnalizer</string>
+   <string>FaceAnalyzer</string>
   </property>
   <widget class="QWidget" name="centralwidget">
    <layout class="QVBoxLayout" name="verticalLayout">
@@ -312,8 +312,8 @@
             <rect>
              <x>0</x>
              <y>0</y>
-             <width>758</width>
-             <height>446</height>
+             <width>308</width>
+             <height>157</height>
             </rect>
            </property>
            <attribute name="label">
@@ -507,8 +507,8 @@
             <rect>
              <x>0</x>
              <y>0</y>
-             <width>758</width>
-             <height>446</height>
+             <width>298</width>
+             <height>81</height>
             </rect>
            </property>
            <attribute name="label">

@@ -157,7 +157,7 @@ class Ui_MainWindow(object):
         self.tool_box = QtWidgets.QToolBox(self.tap_recognition)
         self.tool_box.setObjectName("tool_box")
         self.page_image = QtWidgets.QWidget()
-        self.page_image.setGeometry(QtCore.QRect(0, 0, 758, 446))
+        self.page_image.setGeometry(QtCore.QRect(0, 0, 308, 157))
         self.page_image.setObjectName("page_image")
         self.verticalLayout_5 = QtWidgets.QVBoxLayout(self.page_image)
         self.verticalLayout_5.setObjectName("verticalLayout_5")
@@ -250,7 +250,7 @@ class Ui_MainWindow(object):
         self.verticalLayout_5.addWidget(self.image_content_2)
         self.tool_box.addItem(self.page_image, "")
         self.page_stream = QtWidgets.QWidget()
-        self.page_stream.setGeometry(QtCore.QRect(0, 0, 758, 446))
+        self.page_stream.setGeometry(QtCore.QRect(0, 0, 298, 81))
         self.page_stream.setObjectName("page_stream")
         self.verticalLayout_6 = QtWidgets.QVBoxLayout(self.page_stream)
         self.verticalLayout_6.setObjectName("verticalLayout_6")
@@ -349,7 +349,7 @@ class Ui_MainWindow(object):
 
     def retranslateUi(self, MainWindow):
         _translate = QtCore.QCoreApplication.translate
-        MainWindow.setWindowTitle(_translate("MainWindow", "FaceAnalizer"))
+        MainWindow.setWindowTitle(_translate("MainWindow", "FaceAnalyzer"))
         self.btn_load_images1.setText(_translate("MainWindow", "Загрузить фотографии для обучения"))
         self.btn_take_photo.setText(_translate("MainWindow", "Сделать фотографию"))
         self.btn_left_image1.setText(_translate("MainWindow", "❰"))
