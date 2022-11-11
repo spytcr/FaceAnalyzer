@@ -15,178 +15,6 @@ from ui.db_manager import Ui_Form
 from ui.main_window import Ui_MainWindow
 
 
-def cv_image_to_qt(image, w, h):
-    converted_image = QtGui.QImage(image, image.shape[1], image.shape[0], image.strides[0],
-                                   QtGui.QImage.Format.Format_RGB888).rgbSwapped()
-    pixmap = QtGui.QPixmap.fromImage(converted_image)
-    return pixmap.scaled(w, h, Qt.KeepAspectRatio)
-
-
-class ImageViewer:
-    def __init__(self, lbl_name, lbl_image):
-        self.lbl_name = lbl_name
-        self.lbl_image = lbl_image
-        self.images = []
-        self.current = 0
-
-    def set_image(self):
-        self.lbl_name.setText(self.get_current_image().path)
-        image, w, h = self.get_current_image().image, self.lbl_image.width() - 1, self.lbl_image.height() - 1
-        self.lbl_image.setPixmap(cv_image_to_qt(image, w, h))
-
-    def get_current_image(self):
-        return self.images[self.current]
-
-    def next_image(self):
-        if self.current < len(self.images) - 1:
-            self.current += 1
-
-    def pref_image(self):
-        if self.current > 0:
-            self.current -= 1
-
-    def delete_image(self):
-        del self.images[self.current]
-        if self.current > 0:
-            self.current -= 1
-
-    def add_images(self, images):
-        self.images = images + self.images
-
-
-class Image:
-    def __init__(self, path, image):
-        self.path = path
-        self.image = image
-
-
-class RecognitionImage(Image):
-    def __init__(self, path, image, content):
-        super().__init__(path, image)
-        self.content = content
-
-    @staticmethod
-    def format_content(content):
-        fstr = '{} с вероятностью {}'
-        res = '; '.join(fstr.format(el[0][0], el[0][1]) + ', ' + fstr.format(el[1][0], el[1][1]) for el in content)
-        return res
-
-
-class LearningImage(Image):
-    def __init__(self, path, image, name, emotion, valid):
-        super().__init__(path, image)
-        self.name = name
-        self.emotion = emotion
-        self.valid = valid
-
-
-class StreamManager(QThread):
-    update_frame = pyqtSignal(object)
-
-    def __init__(self):
-        super().__init__()
-        self.stream = None
-        self.running = False
-
-    def run(self):
-        self.running = True
-        while self.running:
-            ret, frame = self.stream.read()
-            self.update_frame.emit(frame)
-            if frame is None:
-                break
-
-    def stop(self):
-        self.running = False
-
-
-class DbManager(QWidget, Ui_Form):
-    def __init__(self, database):
-        super().__init__()
-
-        self.setupUi(self)
-
-        self.database = database
-        self.load_people()
-        self.load_emotions()
-        self.btn_add_person.clicked.connect(self.add_person)
-        self.btn_edit_person.clicked.connect(self.edit_person)
-        self.btn_delete_person.clicked.connect(self.delete_person)
-        self.btn_add_emotion.clicked.connect(self.add_emotion)
-        self.btn_edit_emotion.clicked.connect(self.edit_emotion)
-        self.btn_delete_emotion.clicked.connect(self.delete_emotion)
-
-    def add_person(self):
-        name, ok_pressed = QInputDialog.getText(self, 'Добавить человека', 'Введите имя')
-        if ok_pressed:
-            self.database.add_person(name)
-        self.load_people()
-
-    def edit_person(self):
-        row = self.table_people.currentRow()
-        if row != -1:
-            name, ok_pressed = QInputDialog.getText(self, 'Изменить имя', 'Введите имя', QLineEdit.Normal,
-                                                    self.table_people.item(row, 1).text())
-            if ok_pressed:
-                self.database.update_person(int(self.table_people.item(row, 0).text()), name)
-        self.load_people()
-
-    def delete_person(self):
-        row = self.table_people.currentRow()
-        if row != -1 and self.show_delete_dialog():
-            self.database.delete_person(int(self.table_people.item(row, 0).text()))
-        self.load_people()
-
-    def add_emotion(self):
-        title, ok_pressed = QInputDialog.getText(self, 'Добавить эмоцию', 'Введите название')
-        if ok_pressed:
-            self.database.add_emotion(title)
-        self.load_emotions()
-
-    def edit_emotion(self):
-        row = self.table_emotions.currentRow()
-        if row != -1:
-            title, ok_pressed = QInputDialog.getText(self, 'Изменить название', 'Введите название', QLineEdit.Normal,
-                                                     self.table_emotions.item(row, 1).text())
-            if ok_pressed:
-                self.database.update_emotion(int(self.table_emotions.item(row, 0).text()), title)
-        self.load_emotions()
-
-    def delete_emotion(self):
-        row = self.table_emotions.currentRow()
-        if row != -1 and self.show_delete_dialog():
-            self.database.delete_emotion(int(self.table_emotions.item(row, 0).text()))
-        self.load_emotions()
-
-    def show_delete_dialog(self):
-        msg = QMessageBox(self)
-        msg.setIcon(QMessageBox.Information)
-        msg.setWindowTitle('Удалить запись')
-        msg.setText('Вы уверены?')
-        msg.setStandardButtons(QMessageBox.Ok | QMessageBox.Cancel)
-        return msg.exec() == QMessageBox.Ok
-
-    def load_people(self):
-        headers = ['ID', 'Имя']
-        data = list(filter(lambda x: x[1] != self.database.UNKNOWN_NAME, self.database.get_people()))
-        self.load_data(self.table_people, headers, data)
-
-    def load_emotions(self):
-        headers = ['ID', 'Название']
-        data = list(filter(lambda x: x[1] != self.database.UNKNOWN_EMOTION, self.database.get_emotions()))
-        self.load_data(self.table_emotions, headers, data)
-
-    @staticmethod
-    def load_data(table, headers, data):
-        table.setColumnCount(len(headers))
-        table.setRowCount(0)
-        table.setHorizontalHeaderLabels(headers)
-        for i, row in enumerate(data):
-            table.setRowCount(table.rowCount() + 1)
-            for j, el in enumerate(row):
-                table.setItem(i, j, QTableWidgetItem(str(el)))
-
-
 class MainWindow(QMainWindow, Ui_MainWindow):
     def __init__(self):
         super().__init__()
@@ -259,61 +87,13 @@ class MainWindow(QMainWindow, Ui_MainWindow):
             self.cb_name.setCurrentText(image.name)
             self.cb_emotion.setCurrentText(image.emotion)
 
-    def get_image_content(self, image):
-        faces = self.cvtools.get_faces(image)
-        content, landmarks = [], []
-        for face in faces:
-            embedder = self.cvtools.get_embedder(image, face)
-            landmark = self.cvtools.get_landmark(image, face)
-            landmarks.append(landmark)
-            vectorized = self.cvtools.vectorize_landmark(landmark)
-            content.append(self.cvtools.predict_name_and_emotion(embedder, vectorized))
-        if self.database.get_bool('show_rect'):
-            r, g, b, _ = QColor(self.database.get_preference('rect_color')).getRgb()
-            self.cvtools.draw_faces(image, faces, (b, g, r))
-        if self.database.get_bool('show_text'):
-            r, g, b, _ = QColor(self.database.get_preference('text_color')).getRgb()
-            self.cvtools.write_texts(image, faces, [el[0][0] + ', ' + el[1][0] for el in content], (b, g, r))
-        if self.database.get_bool('show_landmarks'):
-            r, g, b, _ = QColor(self.database.get_preference('landmarks_color')).getRgb()
-            self.cvtools.draw_landmarks(image, landmarks, (b, g, r))
-        return content
-
-    def add_recognition_images(self, data):
-        images = []
-        for path in data:
-            if os.path.exists(path):
-                image = self.cvtools.read_image(path)
-                images.append(RecognitionImage(path, image, self.get_image_content(image)))
-        self.recognition_viewer.add_images(images)
-        self.set_recognition_content()
-
-    def set_recognition_content(self):
-        self.image_content_2.setHidden(len(self.recognition_viewer.images) == 0)
-        if len(self.recognition_viewer.images) > 0:
-            self.recognition_viewer.set_image()
-            image = self.recognition_viewer.get_current_image()
-            self.lbl_image_content.setText('На картинке изображены: ' + RecognitionImage.format_content(image.content))
-
     def learning_image_left(self):
         self.learning_viewer.pref_image()
         self.set_learning_content()
 
-    def recognition_image_left(self):
-        self.recognition_viewer.pref_image()
-        self.set_recognition_content()
-
     def learning_image_right(self):
         self.learning_viewer.next_image()
         self.set_learning_content()
-
-    def recognition_image_right(self):
-        self.recognition_viewer.next_image()
-        self.set_recognition_content()
-
-    def delete_image(self):
-        self.learning_viewer.delete_image()
-        self.check_learning_images()
 
     def name_selected(self, text):
         if len(self.learning_viewer.images) > 0:
@@ -330,6 +110,10 @@ class MainWindow(QMainWindow, Ui_MainWindow):
         for image in self.learning_viewer.images:
             if image.valid:
                 self.database.insert_data((image.path, image.name, image.emotion))
+
+    def delete_image(self):
+        self.learning_viewer.delete_image()
+        self.check_learning_images()
 
     def learn(self):
         self.save_data()
@@ -374,6 +158,50 @@ class MainWindow(QMainWindow, Ui_MainWindow):
             path = self.save_image()
             self.cvtools.save_image(path, frame)
             self.add_learning_images([(path, self.database.UNKNOWN_NAME, self.database.UNKNOWN_EMOTION)])
+
+    def add_recognition_images(self, data):
+        images = []
+        for path in data:
+            if os.path.exists(path):
+                image = self.cvtools.read_image(path)
+                images.append(RecognitionImage(path, image, self.get_image_content(image)))
+        self.recognition_viewer.add_images(images)
+        self.set_recognition_content()
+
+    def get_image_content(self, image):
+        faces = self.cvtools.get_faces(image)
+        content, landmarks = [], []
+        for face in faces:
+            embedder = self.cvtools.get_embedder(image, face)
+            landmark = self.cvtools.get_landmark(image, face)
+            landmarks.append(landmark)
+            vectorized = self.cvtools.vectorize_landmark(landmark)
+            content.append(self.cvtools.predict_name_and_emotion(embedder, vectorized))
+        if self.database.get_bool('show_rect'):
+            r, g, b, _ = QColor(self.database.get_preference('rect_color')).getRgb()
+            self.cvtools.draw_faces(image, faces, (b, g, r))
+        if self.database.get_bool('show_text'):
+            r, g, b, _ = QColor(self.database.get_preference('text_color')).getRgb()
+            self.cvtools.write_texts(image, faces, [el[0][0] + ', ' + el[1][0] for el in content], (b, g, r))
+        if self.database.get_bool('show_landmarks'):
+            r, g, b, _ = QColor(self.database.get_preference('landmarks_color')).getRgb()
+            self.cvtools.draw_landmarks(image, landmarks, (b, g, r))
+        return content
+
+    def set_recognition_content(self):
+        self.image_content_2.setHidden(len(self.recognition_viewer.images) == 0)
+        if len(self.recognition_viewer.images) > 0:
+            self.recognition_viewer.set_image()
+            image = self.recognition_viewer.get_current_image()
+            self.lbl_image_content.setText('На картинке изображены: ' + RecognitionImage.format_content(image.content))
+
+    def recognition_image_left(self):
+        self.recognition_viewer.pref_image()
+        self.set_recognition_content()
+
+    def recognition_image_right(self):
+        self.recognition_viewer.next_image()
+        self.set_recognition_content()
 
     def load_recognition_images(self):
         self.add_recognition_images(self.get_images())
@@ -480,25 +308,6 @@ class MainWindow(QMainWindow, Ui_MainWindow):
         if color.isValid():
             self.database.update_preference(name, color.name())
 
-    def show_rect_changed(self, state):
-        self.database.update_preference('show_rect', str(state == Qt.Checked))
-
-    def rect_color_clicked(self):
-        if (color := self.get_color()) is not None:
-            self.database.update_preference('rect_color', color)
-
-    def show_text_changed(self, state):
-        self.database.update_preference('show_text', str(state == Qt.Checked))
-
-    def text_color_clicked(self):
-        if (color := self.get_color()) is not None:
-            self.database.update_preference('text_color', color)
-
-    def get_color(self):
-        color = QColorDialog.getColor(parent=self)
-        if color.isValid():
-            return color.name()
-
     def show_warning(self, message):
         msg = QMessageBox(self)
         msg.setIcon(QMessageBox.Warning)
@@ -515,6 +324,178 @@ class MainWindow(QMainWindow, Ui_MainWindow):
     def closeEvent(self, event):
         self.database.close()
         super().closeEvent(event)
+
+
+class DbManager(QWidget, Ui_Form):
+    def __init__(self, database):
+        super().__init__()
+
+        self.setupUi(self)
+
+        self.database = database
+        self.load_people()
+        self.load_emotions()
+        self.btn_add_person.clicked.connect(self.add_person)
+        self.btn_edit_person.clicked.connect(self.edit_person)
+        self.btn_delete_person.clicked.connect(self.delete_person)
+        self.btn_add_emotion.clicked.connect(self.add_emotion)
+        self.btn_edit_emotion.clicked.connect(self.edit_emotion)
+        self.btn_delete_emotion.clicked.connect(self.delete_emotion)
+
+    def add_person(self):
+        name, ok_pressed = QInputDialog.getText(self, 'Добавить человека', 'Введите имя')
+        if ok_pressed:
+            self.database.add_person(name)
+        self.load_people()
+
+    def edit_person(self):
+        row = self.table_people.currentRow()
+        if row != -1:
+            name, ok_pressed = QInputDialog.getText(self, 'Изменить имя', 'Введите имя', QLineEdit.Normal,
+                                                    self.table_people.item(row, 1).text())
+            if ok_pressed:
+                self.database.update_person(int(self.table_people.item(row, 0).text()), name)
+        self.load_people()
+
+    def delete_person(self):
+        row = self.table_people.currentRow()
+        if row != -1 and self.show_delete_dialog():
+            self.database.delete_person(int(self.table_people.item(row, 0).text()))
+        self.load_people()
+
+    def add_emotion(self):
+        title, ok_pressed = QInputDialog.getText(self, 'Добавить эмоцию', 'Введите название')
+        if ok_pressed:
+            self.database.add_emotion(title)
+        self.load_emotions()
+
+    def edit_emotion(self):
+        row = self.table_emotions.currentRow()
+        if row != -1:
+            title, ok_pressed = QInputDialog.getText(self, 'Изменить название', 'Введите название', QLineEdit.Normal,
+                                                     self.table_emotions.item(row, 1).text())
+            if ok_pressed:
+                self.database.update_emotion(int(self.table_emotions.item(row, 0).text()), title)
+        self.load_emotions()
+
+    def delete_emotion(self):
+        row = self.table_emotions.currentRow()
+        if row != -1 and self.show_delete_dialog():
+            self.database.delete_emotion(int(self.table_emotions.item(row, 0).text()))
+        self.load_emotions()
+
+    def show_delete_dialog(self):
+        msg = QMessageBox(self)
+        msg.setIcon(QMessageBox.Information)
+        msg.setWindowTitle('Удалить запись')
+        msg.setText('Вы уверены?')
+        msg.setStandardButtons(QMessageBox.Ok | QMessageBox.Cancel)
+        return msg.exec() == QMessageBox.Ok
+
+    def load_people(self):
+        headers = ['ID', 'Имя']
+        data = list(filter(lambda x: x[1] != self.database.UNKNOWN_NAME, self.database.get_people()))
+        self.load_data(self.table_people, headers, data)
+
+    def load_emotions(self):
+        headers = ['ID', 'Название']
+        data = list(filter(lambda x: x[1] != self.database.UNKNOWN_EMOTION, self.database.get_emotions()))
+        self.load_data(self.table_emotions, headers, data)
+
+    @staticmethod
+    def load_data(table, headers, data):
+        table.setColumnCount(len(headers))
+        table.setRowCount(0)
+        table.setHorizontalHeaderLabels(headers)
+        for i, row in enumerate(data):
+            table.setRowCount(table.rowCount() + 1)
+            for j, el in enumerate(row):
+                table.setItem(i, j, QTableWidgetItem(str(el)))
+
+
+class Image:
+    def __init__(self, path, image):
+        self.path = path
+        self.image = image
+
+
+class RecognitionImage(Image):
+    def __init__(self, path, image, content):
+        super().__init__(path, image)
+        self.content = content
+
+    @staticmethod
+    def format_content(content):
+        fstr = '{} с вероятностью {}'
+        res = '; '.join(fstr.format(el[0][0], el[0][1]) + ', ' + fstr.format(el[1][0], el[1][1]) for el in content)
+        return res
+
+
+class LearningImage(Image):
+    def __init__(self, path, image, name, emotion, valid):
+        super().__init__(path, image)
+        self.name = name
+        self.emotion = emotion
+        self.valid = valid
+
+
+def cv_image_to_qt(image, w, h):
+    converted_image = QtGui.QImage(image, image.shape[1], image.shape[0], image.strides[0],
+                                   QtGui.QImage.Format.Format_RGB888).rgbSwapped()
+    pixmap = QtGui.QPixmap.fromImage(converted_image)
+    return pixmap.scaled(w, h, Qt.KeepAspectRatio)
+
+
+class ImageViewer:
+    def __init__(self, lbl_name, lbl_image):
+        self.lbl_name = lbl_name
+        self.lbl_image = lbl_image
+        self.images = []
+        self.current = 0
+
+    def set_image(self):
+        self.lbl_name.setText(self.get_current_image().path)
+        image, w, h = self.get_current_image().image, self.lbl_image.width() - 1, self.lbl_image.height() - 1
+        self.lbl_image.setPixmap(cv_image_to_qt(image, w, h))
+
+    def get_current_image(self):
+        return self.images[self.current]
+
+    def next_image(self):
+        if self.current < len(self.images) - 1:
+            self.current += 1
+
+    def pref_image(self):
+        if self.current > 0:
+            self.current -= 1
+
+    def delete_image(self):
+        del self.images[self.current]
+        if self.current > 0:
+            self.current -= 1
+
+    def add_images(self, images):
+        self.images = images + self.images
+
+
+class StreamManager(QThread):
+    update_frame = pyqtSignal(object)
+
+    def __init__(self):
+        super().__init__()
+        self.stream = None
+        self.running = False
+
+    def run(self):
+        self.running = True
+        while self.running:
+            ret, frame = self.stream.read()
+            self.update_frame.emit(frame)
+            if frame is None:
+                break
+
+    def stop(self):
+        self.running = False
 
 
 def exception_hook(*args):

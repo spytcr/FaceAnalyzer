@@ -1,5 +1,4 @@
 altgraph==0.17.3
-certifi @ file:///C:/b/abs_ac29jvt43w/croot/certifi_1665076682579/work/certifi
 future==0.18.2
 joblib==1.2.0
 numpy==1.23.4
