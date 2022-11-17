@@ -126,7 +126,7 @@ class MainWindow(QMainWindow, Ui_MainWindow):
             self.show_warning('Для построения модели должно быть хотя-бы 2 разных эмоции')
         else:
             model_path = QFileDialog.getSaveFileName(self, 'Сохраните модель', '', 'Model file (*.pickle)')[0]
-            if os.path.exists(model_path):
+            if model_path != '':
                 self.database.update_preference('model_path', model_path)
                 progress_bar = QProgressBar(self)
                 progress_bar.setMinimum(0)
@@ -157,7 +157,7 @@ class MainWindow(QMainWindow, Ui_MainWindow):
             self.show_warning('Не удалось сделать фотографию, проверьте веб-камеру')
         else:
             path = self.save_image()
-            if os.path.exists(path):
+            if path != '':
                 self.cvtools.save_image(path, frame)
                 self.add_learning_images([(path, self.database.UNKNOWN_NAME, self.database.UNKNOWN_EMOTION)])
 
