@@ -264,40 +264,41 @@ class MainWindow(QMainWindow, Ui_MainWindow):
 
     def save_statistics(self):
         path = QFileDialog.getSaveFileName(self, 'Сохраните статистику', '', 'Excel file (*.xlsx)')[0]
-        workbook = xlsxwriter.Workbook(path)
-        worksheet = workbook.add_worksheet('Статистика')
-        headers = ['Фотография', 'Люди', 'Эмоции']
-        for i, el in enumerate(headers):
-            worksheet.write(0, i, el)
-        i = 1
-        names, emotions = {}, {}
-        for image in self.recognition_viewer.images:
-            for content in image.content:
-                worksheet.write(i, 0, image.path)
-                worksheet.write(i, 1, content[0][0])
-                worksheet.write(i, 2, content[1][0])
-                if content[0][0] not in names:
-                    names[content[0][0]] = 0
-                names[content[0][0]] += 1
-                if content[1][0] not in emotions:
-                    emotions[content[1][0]] = 0
-                emotions[content[1][0]] += 1
+        if path != '':
+            workbook = xlsxwriter.Workbook(path)
+            worksheet = workbook.add_worksheet('Статистика')
+            headers = ['Фотография', 'Люди', 'Эмоции']
+            for i, el in enumerate(headers):
+                worksheet.write(0, i, el)
+            i = 1
+            names, emotions = {}, {}
+            for image in self.recognition_viewer.images:
+                for content in image.content:
+                    worksheet.write(i, 0, image.path)
+                    worksheet.write(i, 1, content[0][0])
+                    worksheet.write(i, 2, content[1][0])
+                    if content[0][0] not in names:
+                        names[content[0][0]] = 0
+                    names[content[0][0]] += 1
+                    if content[1][0] not in emotions:
+                        emotions[content[1][0]] = 0
+                    emotions[content[1][0]] += 1
+                    i += 1
+            i = 0
+            for (k1, v1), (k2, v2) in zip(names.items(), emotions.items()):
+                worksheet.write(i, 4, k1)
+                worksheet.write(i, 5, v1)
+                worksheet.write(i, 7, k2)
+                worksheet.write(i, 8, v2)
                 i += 1
-        i = 0
-        for (k1, v1), (k2, v2) in zip(names.items(), emotions.items()):
-            worksheet.write(i, 4, k1)
-            worksheet.write(i, 5, v1)
-            worksheet.write(i, 7, k2)
-            worksheet.write(i, 8, v2)
-            i += 1
-        names_chart, emotions_chart = workbook.add_chart({'type': 'pie'}), workbook.add_chart({'type': 'pie'})
-        names_chart.add_series({'values':  f'=Статистика!F1:F{i}',
-                                'categories': f'=Статистика!E1:E{i}'})
-        emotions_chart.add_series({'values':  f'=Статистика!I1:I{i}',
-                                   'categories': f'=Статистика!H1:H{i}'})
-        worksheet.insert_chart(f'E{i + 1}', names_chart)
-        worksheet.insert_chart(f'E{i + 16}', emotions_chart)
-        workbook.close()
+            names_chart, emotions_chart = workbook.add_chart({'type': 'pie'}), workbook.add_chart({'type': 'pie'})
+            names_chart.add_series({'values':  f'=Статистика!F1:F{i}',
+                                    'categories': f'=Статистика!E1:E{i}'})
+            emotions_chart.add_series({'values':  f'=Статистика!I1:I{i}',
+                                       'categories': f'=Статистика!H1:H{i}'})
+            worksheet.insert_chart(f'E{i + 1}', names_chart)
+            worksheet.insert_chart(f'E{i + 16}', emotions_chart)
+            workbook.close()
 
     def load_db_manager(self):
         self.db_manager.show()
@@ -428,8 +429,9 @@ class RecognitionImage(Image):
 
     @staticmethod
     def format_content(content):
-        fstr = '{} с вероятностью {}'
-        res = '; '.join(fstr.format(el[0][0], el[0][1]) + ', ' + fstr.format(el[1][0], el[1][1]) for el in content)
+        fstr = '{} с вероятностью {}%'
+        res = '\n'.join(fstr.format(el[0][0], int(el[0][1] * 100)) + ', ' + fstr.format(el[1][0], int(el[1][1] * 100))
+                        for el in content)
         return res
 
 
