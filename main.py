@@ -120,27 +120,28 @@ class MainWindow(QMainWindow, Ui_MainWindow):
         data = self.database.get_data()
         names = [el[1] for el in data]
         emotions = [el[2] for el in data]
-        if len(names) == 0:
+        if len(set(names)) < 2:
             self.show_warning('Для построения модели должно быть хотя-бы 2 разных человека')
-        elif len(emotions) == 0:
+        elif len(set(emotions)) < 2:
             self.show_warning('Для построения модели должно быть хотя-бы 2 разных эмоции')
         else:
             model_path = QFileDialog.getSaveFileName(self, 'Сохраните модель', '', 'Model file (*.pickle)')[0]
-            self.database.update_preference('model_path', model_path)
-            progress_bar = QProgressBar(self)
-            progress_bar.setMinimum(0)
-            progress_bar.setMaximum(0)
-            self.statusbar.addWidget(progress_bar)
-            embedders, landmarks = [], []
-            for path in [el[0] for el in data]:
-                image = self.cvtools.read_image(path)
-                face = self.cvtools.get_faces(image)[0]
-                embedder = self.cvtools.get_embedder(image, face)
-                embedders.append(embedder.flatten())
-                landmark = self.cvtools.vectorize_landmark(self.cvtools.get_landmark(image, face))
-                landmarks.append(landmark.flatten())
-            self.cvtools.learn_model(model_path, names, embedders, emotions, landmarks)
-            self.statusbar.removeWidget(progress_bar)
+            if os.path.exists(model_path):
+                self.database.update_preference('model_path', model_path)
+                progress_bar = QProgressBar(self)
+                progress_bar.setMinimum(0)
+                progress_bar.setMaximum(0)
+                self.statusbar.addWidget(progress_bar)
+                embedders, landmarks = [], []
+                for path in [el[0] for el in data]:
+                    image = self.cvtools.read_image(path)
+                    face = self.cvtools.get_faces(image)[0]
+                    embedder = self.cvtools.get_embedder(image, face)
+                    embedders.append(embedder.flatten())
+                    landmark = self.cvtools.vectorize_landmark(self.cvtools.get_landmark(image, face))
+                    landmarks.append(landmark.flatten())
+                self.cvtools.learn_model(model_path, names, embedders, emotions, landmarks)
+                self.statusbar.removeWidget(progress_bar)
 
     def load_learning_images(self):
         paths = self.get_images()
@@ -156,8 +157,9 @@ class MainWindow(QMainWindow, Ui_MainWindow):
             self.show_warning('Не удалось сделать фотографию, проверьте веб-камеру')
         else:
             path = self.save_image()
-            self.cvtools.save_image(path, frame)
-            self.add_learning_images([(path, self.database.UNKNOWN_NAME, self.database.UNKNOWN_EMOTION)])
+            if os.path.exists(path):
+                self.cvtools.save_image(path, frame)
+                self.add_learning_images([(path, self.database.UNKNOWN_NAME, self.database.UNKNOWN_EMOTION)])
 
     def add_recognition_images(self, data):
         images = []
